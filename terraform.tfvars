@@ -1,1 +1,1 @@
-location = "stockholm central"
+location = "sweden central"

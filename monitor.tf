@@ -33,6 +33,6 @@ resource "azurerm_monitor_diagnostic_setting" "keyvault_log" {
 
   enabled_log { category_group = "audit" }
   enabled_log { category_group = "allLogs" }
-  
+
   metric { category = "AllMetrics" }
 }

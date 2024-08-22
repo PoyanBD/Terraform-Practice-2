@@ -14,7 +14,7 @@ resource "azurerm_resource_group" "main" {
 resource "azurerm_storage_account" "main" {
   name                     = "st${random_string.main.result}"
   resource_group_name      = azurerm_resource_group.main.name
-  location                 = azurerm_resource_group.main.location
+  location                 = var.location
   account_tier             = "Standard"
   account_replication_type = "GRS"
 
@@ -22,7 +22,7 @@ resource "azurerm_storage_account" "main" {
 
 resource "azurerm_log_analytics_workspace" "main" {
   name                = "log-first${random_string.main.result}"
-  location            = azurerm_resource_group.main.location
+  location            = var.location
   resource_group_name = azurerm_resource_group.main.name
   sku                 = "PerGB2018"
   retention_in_days   = 30
@@ -32,7 +32,7 @@ resource "azurerm_log_analytics_workspace" "main" {
 
 resource "azurerm_virtual_network" "main" {
   name                = "vnet-first${random_string.main.result}"
-  location            = azurerm_resource_group.main.location
+  location            = var.location
   resource_group_name = azurerm_resource_group.main.name
   address_space       = ["10.0.1.0/16"]
 }
@@ -46,7 +46,7 @@ resource "azurerm_subnet" "default" {
 
 resource "azurerm_network_security_group" "default" {
   name                = "nsg-default"
-  location            = azurerm_resource_group.main.location
+  location            = var.location
   resource_group_name = azurerm_resource_group.main.name
 }
 
@@ -74,7 +74,7 @@ resource "azurerm_subnet_network_security_group_association" "default_rule1" {
 
 resource "azurerm_key_vault" "main" {
   name                     = "kv-first-${random_string.main.result}"
-  location                 = azurerm_resource_group.main.location
+  location                 = var.location
   resource_group_name      = azurerm_resource_group.main.name
   tenant_id                = data.azurerm_client_config.current.tenant_id
   purge_protection_enabled = false
@@ -92,3 +92,37 @@ resource "azurerm_key_vault_access_policy" "terraform_user" {
 }
 
 #4
+
+resource "azurerm_public_ip" "main" {
+  name                = "pip-vm${random_string.main.result}"
+  resource_group_name = azurerm_resource_group.main.name
+  location            = var.location
+  allocation_method   = "Static"
+}
+
+resource "azurerm_network_interface" "main" {
+  name                = "nic-vm${random_string.main.result}"
+  resource_group_name = azurerm_resource_group.main.name
+  location            = var.location
+
+  ip_configuration {
+    name                          = "public"
+    subnet_id                     = azurerm_subnet.default.id
+    private_ip_address_allocation = "Dynamic"
+    public_ip_address_id          = azurerm_public_ip.main.id
+  }
+}
+
+#5
+
+resource "azurerm_bastion_host" "main" {
+  name                = "bas${random_string.main.result}"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.main.name
+
+  ip_configuration {
+    name                 = "configuration"
+    subnet_id            = azurerm_subnet.default.id
+    public_ip_address_id = azurerm_public_ip.main.id
+  }
+}

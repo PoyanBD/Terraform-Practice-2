@@ -126,3 +126,78 @@ resource "azurerm_bastion_host" "main" {
     public_ip_address_id = azurerm_public_ip.main.id
   }
 }
+
+#6
+
+resource "azurerm_virtual_network_gateway" "vpn" {
+  name                = "vgw-${random_string.main.result}"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.main.name
+
+  type     = "Vpn"
+  vpn_type = "RouteBased"
+
+  active_active = false
+  enable_bgp    = false
+  sku           = "Basic"
+
+  ip_configuration {
+    name                          = "vnetGatewayConfig"
+    public_ip_address_id          = azurerm_public_ip.vpn-pip.id
+    private_ip_address_allocation = "Dynamic"
+    subnet_id                     = azurerm_subnet.default.id
+  }
+
+  vpn_client_configuration {
+    address_space        = ["10.2.0.0/24"]
+    vpn_auth_types       = ["AAD"]
+    aad_tenant           = ""
+    aad_audience         = ""
+    aad_issuer           = "*/"
+    vpn_client_protocols = ["OpenVPN"]
+  }
+
+}
+
+#11
+
+resource "azuread_application" "web_api" {
+  display_name = "Example Api"
+  owners       = [data.azuread_client_config.current.object_id]
+}
+
+resource "azuread_service_principal" "web_api" {
+  client_id                    = azuread_application.web_api.client_id
+  app_role_assignment_required = false
+  owners                       = [data.azuread_client_config.current.object_id]
+}
+
+resource "time_rotating" "one_week" {
+  rotation_days = 7
+}
+
+resource "azuread_service_principal_password" "web_app_allow_web_api" {
+  display_name         = "Web app"
+  service_principal_id = azuread_service_principal.web_api.object_id
+  rotate_when_changed = {
+    rotation = time_rotating.one_week.id
+  }
+}
+
+#12
+
+resource "azurerm_subscription_policy_assignment" "disallow_sa_public_access" {
+  name                 = "DisallowSAPublicAccess"
+  policy_definition_id = data.azurerm_policy_definition_built_in.disallow_sa_public_access.id
+  subscription_id      = data.azurerm_subscription.current.id
+
+  parameters = jsonencode(
+    {
+      effect = {
+        value = "Deny"
+      }
+    }
+  )
+}
+
+#14
